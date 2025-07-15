@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Liquid Glass UI - Attendance App</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+    /* --- Global Styles & Font --- */
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap');
+
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    body {
+        font-family: 'Poppins', sans-serif;
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background: linear-gradient(to right top, #65dfc9, #6cdbeb);
+        overflow: hidden; /* Prevents scrollbars from the animated shapes */
+    }
+
+    /* --- Animated Background Shapes --- */
+    .shape {
+        position: absolute;
+        background: linear-gradient(to right bottom, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.3));
+        border-radius: 50%;
+        z-index: 1;
+        opacity: 0.8;
+        animation: float 15s infinite ease-in-out;
+    }
+
+    .shape1 { height: 220px; width: 220px; top: 5vh; left: 5vw; }
+    .shape2 { height: 170px; width: 170px; bottom: 10vh; right: 10vw; animation-delay: 2s; animation-duration: 17s; }
+    .shape3 { height: 90px; width: 90px; top: 50vh; right: 8vw; animation-delay: 5s; animation-duration: 12s; }
+
+    @keyframes float {
+        0% { transform: translateY(0) rotate(0deg) scale(1); }
+        50% { transform: translateY(-40px) rotate(180deg) scale(1.1); }
+        100% { transform: translateY(0) rotate(360deg) scale(1); }
+    }
+
+    /* --- Main App Container --- */
+    .app-container {
+        width: 95%;
+        max-width: 900px;
+        height: 90vh;
+        max-height: 650px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 2rem;
+        z-index: 2;
+        backdrop-filter: blur(30px) saturate(180%);
+        -webkit-backdrop-filter: blur(30px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.2);
+        display: flex;
+        overflow: hidden;
+    }
+    
+    /* --- Navigation Menu --- */
+    .sidebar {
+        flex: 0 0 220px;
+        background: rgba(255, 255, 255, 0.05); /* Made sidebar slightly more transparent */
+        padding: 2rem 1rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        border-right: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .logo { display: flex; align-items: center; gap: 0.5rem; color: #2c3e50; margin-bottom: 3rem; }
+    .logo-icon { width: 35px; height: 35px; }
+    .logo h2 { font-weight: 600; font-size: 1.4rem; }
+    .menu { list-style: none; width: 100%; }
+    .menu-item { margin-bottom: 1rem; }
+    .menu-link { display: flex; align-items: center; gap: 1rem; padding: 0.8rem 1.2rem; text-decoration: none; color: #34495e; border-radius: 0.75rem; transition: all 0.3s ease; font-weight: 500; }
+    .menu-link:hover, .menu-link:focus-visible { background: rgba(255, 255, 255, 0.2); }
+    .menu-link.active {
+        background: linear-gradient(to right, rgba(101, 223, 201, 0.9), rgba(108, 219, 235, 0.9));
+        color: white;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
+        text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+    .menu-icon { width: 22px; height: 22px; }
+
+    /* --- Main Content Area --- */
+    .main-content { flex-grow: 1; padding: 2rem; overflow-y: auto; }
+    .main-content::-webkit-scrollbar { width: 8px; }
+    .main-content::-webkit-scrollbar-thumb { background-color: rgba(0,0,0,0.2); border-radius: 10px; }
+    .main-content::-webkit-scrollbar-track { background-color: transparent; } /* Made scrollbar track invisible */
+    .content-section { display: none; animation: fadeIn 0.5s ease-in-out; }
+    .content-section.active { display: block; }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .content-header { color: #2c3e50; margin-bottom: 1.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid rgba(0,0,0,0.1); }
+    .content p { line-height: 1.8; color: #34495e; margin-bottom: 1rem; }
+    .card { background: rgba(255, 255, 255, 0.2); padding: 1.5rem; border-radius: 1rem; margin-top: 1.5rem; border: 1px solid rgba(255, 255, 255, 0.25); backdrop-filter: blur(10px); }
+    .card h3 { margin-bottom: 1rem; color: #2c3e50; }
+
+    /* --- Common Control Styles --- */
+    .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+    .controls select, .controls input { padding: 0.8rem 1rem; border-radius: 0.75rem; border: 1px solid rgba(255, 255, 255, 0.4); background: rgba(255, 255, 255, 0.3); font-weight: 500; color: #2c3e50; width: 100%; font-family: 'Poppins', sans-serif; transition: all 0.2s ease; }
+    .controls select:focus, .controls input:focus { border-color: rgba(255, 255, 255, 0.7); box-shadow: 0 0 10px rgba(108, 219, 235, 0.5); outline: none; }
+    .controls input[type='date'] { grid-column: 1 / -1; }
+
+    /* --- Attendance App Specific Styles --- */
+    #attendance button { width: 100%; padding: 0.8rem; margin-top: 1rem; background: linear-gradient(to right, #65dfc9, #6cdbeb); color: white; font-size: 1rem; font-weight: 600; border: none; border-radius: 0.75rem; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+    #attendance button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.2), inset 0 0 10px rgba(255, 255, 255, 0.3);
+        filter: brightness(1.05);
+    }
+    #student-list { margin-top: 1.5rem; padding-right: 1rem; }
+    .student-card { background: linear-gradient(135deg, rgba(255,255,255,0.3), rgba(255,255,255,0.1)); margin: 0.6rem 0; padding: 1rem; border-radius: 1rem; transition: all 0.3s ease; border: 1px solid rgba(255, 255, 255, 0.2); }
+    .student-card:hover { transform: translateY(-3px) scale(1.01); box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+    .student-header { display: flex; align-items: center; justify-content: space-between; }
+    .status-icon { font-size: 1.2rem; margin-right: 0.8rem; color: #34495e; transition: color 0.2s; cursor: pointer; }
+    .student-card.present .status-icon { color: #27ae60; }
+    .student-card.absent .status-icon { color: #c0392b; }
+    .name-group { display: flex; align-items: center; flex: 1; }
+    .name { font-weight: 600; color: #2c3e50; }
+    .auto-btn { background: rgba(255, 255, 255, 0.3); border: none; padding: 0.4rem 0.8rem; border-radius: 0.5rem; cursor: pointer; font-size: 0.8rem; margin-left: 0.5rem; transition: all 0.2s; color: #2c3e50; }
+    .auto-btn:hover { background: rgba(255, 255, 255, 0.5); }
+    .appearance-dropdown { margin-top: 1rem; display: none; flex-direction: column; gap: 0.8rem; }
+    .student-card.present .appearance-dropdown { display: flex; }
+    .appearance-dropdown label { display: flex; justify-content: space-between; font-size: 0.9rem; color: #34495e; }
+    .appearance-dropdown select { width: 50%; padding: 0.5rem; border-radius: 0.5rem; border: 1px solid rgba(255, 255, 255, 0.4); background: rgba(255, 255, 255, 0.2); }
+    #mark-status-label { text-align: center; margin-top: 1rem; font-size: 0.9rem; font-weight: 500; color: #2c3e50; }
+
+    /* --- Profile Tab Styles --- */
+    #profile-student-list { list-style: none; margin-top: 1.5rem; max-height: calc(90vh - 250px); overflow-y: auto; padding-right: 1rem; }
+    #profile-student-list::-webkit-scrollbar { width: 6px; }
+    #profile-student-list::-webkit-scrollbar-thumb { background-color: rgba(0,0,0,0.2); border-radius: 10px; }
+    #profile-student-list::-webkit-scrollbar-track { background-color: rgba(255,255,255,0.1); }
+    #profile-student-list li { background: rgba(255, 255, 255, 0.2); padding: 0.8rem 1.2rem; border-radius: 0.75rem; margin-bottom: 0.5rem; cursor: pointer; transition: all 0.2s; border: 1px solid rgba(255, 255, 255, 0.2); }
+    #profile-student-list li:hover { background: rgba(255, 255, 255, 0.4); transform: translateX(5px); }
+    
+    /* --- Profile Modal Styles --- */
+    .profile-modal-backdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.3); z-index: 100; display: none; justify-content: center; align-items: center; animation: fadeIn 0.3s ease; }
+    .profile-modal-content {
+        width: 90%;
+        max-width: 420px;
+        padding: 1.8rem;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 2rem;
+        backdrop-filter: blur(25px) saturate(180%);
+        -webkit-backdrop-filter: blur(25px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.25);
+        position: relative;
+        animation: slideIn 0.4s ease;
+    }
+    @keyframes slideIn { from { transform: translateY(-30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .profile-modal-close { position: absolute; top: 1rem; right: 1.5rem; font-size: 2rem; font-weight: bold; color: #34495e; cursor: pointer; transition: transform 0.2s; }
+    .profile-modal-close:hover { transform: scale(1.2); color: #c0392b; }
+    .profile-header { text-align: center; margin-bottom: 1.5rem; }
+    .profile-photo { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 4px solid rgba(255, 255, 255, 0.5); margin-bottom: 1rem; }
+    .profile-name { font-size: 1.4rem; font-weight: 600; color: #2c3e50; }
+    .profile-details { list-style: none; }
+    .profile-details li { padding: 0.6rem 0; border-bottom: 1px solid rgba(255, 255, 255, 0.2); color: #34495e; display: flex; justify-content: space-between; align-items: center; text-align: right; font-size: 0.9rem; }
+    .profile-details li:last-child { border-bottom: none; }
+    .profile-details strong { font-weight: 600; color: #2c3e50; margin-right: 1rem; text-align: left; }
+    .profile-details a { color: #16a085; text-decoration: none; font-weight: 500; }
+    .profile-details a:hover { text-decoration: underline; }
+
+    /* --- Responsive Design --- */
+    @media (max-width: 768px) {
+        .app-container { flex-direction: column; height: 100vh; max-height: none; width: 100%; border-radius: 0; }
+        .sidebar { flex: 0 0 auto; flex-direction: row; justify-content: space-around; padding: 0.5rem; border-right: none; border-bottom: 1px solid rgba(255, 255, 255, 0.2); }
+        .logo { display: none; }
+        .menu { display: flex; justify-content: center; width: 100%; }
+        .menu-item { margin: 0 0.2rem; }
+        .menu-link { flex-direction: column; padding: 0.5rem; gap: 0.2rem; font-size: 0.75rem; }
+        .main-content { padding: 1.5rem; }
+    }
+</style>
+</head>
+<body>
+
+    <div class="shape shape1"></div>
+    <div class="shape shape2"></div>
+    <div class="shape shape3"></div>
+
+    <main class="app-container">
+        <aside class="sidebar">
+            <div class="logo">
+                <svg class="logo-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c5.52 0 10 4.48 10 10s-4.48 10-10 10S2 17.52 2 12 6.48 2 12 2zm0 18c4.41 0 8-3.59 8-8s-3.59-8-8-8-8 3.59-8 8 3.59 8 8 8z"/></svg>
+                <h2>GlassUI</h2>
+            </div>
+            <ul class="menu">
+                <li class="menu-item"><a href="#" class="menu-link active" data-target="attendance"><svg class="menu-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M17 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg><span>Attendance</span></a></li>
+                <li class="menu-item"><a href="#" class="menu-link" data-target="profile"><svg class="menu-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg><span>Profile</span></a></li>
+                <li class="menu-item"><a href="#" class="menu-link" data-target="info"><svg class="menu-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2zm0 2c-4.418 0-8 3.582-8 8s3.582 8 8 8 8-3.582 8-8-3.582-8-8-8zm-1 3h2v2h-2V7zm0 4h2v6h-2v-6z"/></svg><span>Info</span></a></li>
+            </ul>
+        </aside>
+
+        <section class="main-content">
+            <div id="attendance" class="content-section active">
+                <h1 class="content-header">Student Attendance</h1>
+                <div class="controls">
+                    <input type="date" id="date-select" />
+                    <select id="class-select"><option value="">Select Class</option><option value="1">Class 1</option><option value="2">Class 2</option><option value="3">Class 3</option><option value="4">Class 4</option><option value="5">Class 5</option><option value="6">Class 6</option><option value="7">Class 7</option><option value="8">Class 8</option><option value="9">Class 9</option><option value="10">Class 10</option></select>
+                    <select id="section-select"><option value="">Select Section</option><option value="A">Section A</option><option value="B">Section B</option></select>
+                </div>
+                <button id="mark-all-btn">Mark All Present & Appearance ✓</button>
+                <div id="mark-status-label"></div>
+                <div id="student-list"></div>
+                <button id="generate-btn">Generate Excel Sheet</button>
+                <button id="save-btn">Save Attendance</button>
+            </div>
+            
+            <div id="profile" class="content-section">
+                <h1 class="content-header">Student Profiles</h1>
+                <div class="controls">
+                     <select id="profile-class-select"><option value="">Select Class</option><option value="1">Class 1</option><option value="2">Class 2</option><option value="3">Class 3</option><option value="4">Class 4</option><option value="5">Class 5</option><option value="6">Class 6</option><option value="7">Class 7</option><option value="8">Class 8</option><option value="9">Class 9</option><option value="10">Class 10</option></select>
+                     <select id="profile-section-select"><option value="">Select Section</option><option value="A">Section A</option><option value="B">Section B</option></select>
+                </div>
+                <ul id="profile-student-list">
+                    <!-- Student names for the selected class/section will be populated here -->
+                </ul>
+            </div>
+
+            <div id="info" class="content-section"><h1 class="content-header">Application Information</h1><div class="content"><p>This application is designed to provide a seamless and modern user experience for managing school-related tasks.</p><div class="card"><h3>About GlassUI</h3><p><strong>Version:</strong> 1.7.0</p><p><strong>Frameworks:</strong> HTML, CSS, JavaScript</p><p>This UI demonstrates modern CSS features like backdrop-filter for creating stunning, layered interfaces.</p></div></div></div>
+        </section>
+    </main>
+
+    <!-- Student Profile Modal -->
+    <div id="profile-modal" class="profile-modal-backdrop">
+        <div class="profile-modal-content">
+            <span id="profile-modal-close" class="profile-modal-close">&times;</span>
+            <div class="profile-header">
+                <img id="modal-profile-photo" src="https://placehold.co/120x120/65dfc9/FFFFFF?text=S" alt="Student Photo" class="profile-photo">
+                <h2 id="modal-profile-name" class="profile-name">Student Name</h2>
+            </div>
+            <ul id="modal-profile-details" class="profile-details">
+                <!-- Details will be populated by JavaScript -->
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const menuLinks = document.querySelectorAll('.menu-link');
+            const contentSections = document.querySelectorAll('.content-section');
+            menuLinks.forEach(link => {
+                link.addEventListener('click', function(event) {
+                    event.preventDefault();
+                    const targetId = this.dataset.target;
+                    menuLinks.forEach(l => l.classList.remove('active'));
+                    contentSections.forEach(s => s.classList.remove('active'));
+                    this.classList.add('active');
+                    document.getElementById(targetId).classList.add('active');
+                });
+            });
+        });
+
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzewwl1g_rURX_lFLBSJqwj7FFE9B6FdF7gruo9dyoFaumILNhn42BAmCKZvruOtAn2NA/exec";
+        const dateInput = document.getElementById('date-select');
+        const classSelect = document.getElementById('class-select');
+        const sectionSelect = document.getElementById('section-select');
+        const studentListDiv = document.getElementById('student-list');
+        const generateBtn = document.getElementById('generate-btn');
+        const saveBtn = document.getElementById('save-btn');
+        const markAllBtn = document.getElementById('mark-all-btn');
+        const markStatusLabel = document.getElementById('mark-status-label');
+        
+        const profileClassSelect = document.getElementById('profile-class-select');
+        const profileSectionSelect = document.getElementById('profile-section-select');
+        const profileStudentList = document.getElementById('profile-student-list');
+        
+        const profileModal = document.getElementById('profile-modal');
+        const profileModalClose = document.getElementById('profile-modal-close');
+
+        // --- MASTER DATA: Names for Attendance ---
+        const studentsData = {1:{A:["Ali","Fatima","Rahul","Simran","Aryan","Neha","Kabir","Zara","Yash","Riya"],B:["Imran","Priya","Dev","Sneha","Adil","Meera","Rohan","Tina","Ankit","Jaya"]},2:{A:["Sahil","Anu","Tarun","Kajal","Manav","Nisha","Aman","Preeti","Vivek","Swati"],B:["Irfan","Diya","Arnav","Sheetal","Karan","Aisha","Tushar","Radha","Vikram","Pinki"]},3:{A:['Syed Adil','Munef Arsum Khan','Shaikh Kamran','Zeba Fatema','Mohammed Moinuddin','Azfereen Fatema','Swara','Syed Sajid','Md Umer','Sadiya Khan','Warun','Aiza Fatema','Mohammad Sameed','Dhanraj','Mohammad Usman','Syed Arshan Quadri','Shaikh Abuzar','Syed Hussain Bagwan','Mohammad Saad','AbdulrahmanBa Amar','Zainab Fatema','Ariba','Viraj','Fatima Syeda','Pathan ZaidKhan','Shaikh Mayera','Sujit','Syed Daniyal Alvi'],B:['Mohammad Yusufoddin','Hafsa Khan','Sara Siddiqui','Sana','Anagha','Arshan','Syed Aarish Patel','Nizami Jamaluddin','Mohmmad Adil Ahmed','Rudraveer','Kushal','Vidhi','Zahyan Khan','Reyansh','Abdul Arshan','Shaikh Hasnain Malik','Sadiyah Maryam','Shaikh Ashraf','Devansh','Aadhya','Prishika','Spruha','Aarya','Devansh','Shourya','Mahenoor','Shreeja','Syed Umar','Syeda Artada','Khan Samiha Fatema','Shaikh Arham','Syed Shahrul','Aayat','Kshitij']},4:{A:['Vaishnavi','Syed Tehran','Niyati','Arnav','Patel Maryam Fatema','Viraj','Varad','Mohammad Owais','Raonaque Fatema','Mohammad Munib','Ansari Arhan','Krishna','Anabiya Duraid','Shaikh Zaid','Shayan','Shaikh Rashmeen','Zohaib Khan','Bushra','Shreya','Swarup','Shaikh Fakruddin','Shivraje','Rajveer','Divij','Vishwajeet','Pathan Wahaj Ahmad','Inaya Fatema','Mohammed Asharib','B. Akshitha','Shaikh Amad','Ayushman','Inamdar Rayyan'],B:['Priaan','Palak','Ritisha','Shreeshorya','Khaja Danish','Shriansh','Mohammed Hibaan Shaikh','Arya','Kenisha','Muhammad Umair','Shrey','Raunak','Nizami Nabila Fatima','Rudransh','Shaikh Hassan','Syed Saad','Affan Ahemad Khan','Ashmira Nabish','Azra Maheen Ansari','Kavya','Fatima','Mohammad Noor','Shaikh Amena','Shaurya','Yashraj Himanshu','Afeefa Fatima','Dev','Bhavika Rajpurohit','Harshvardhan','Madiha','Harmeen Zahera','Sayyeda Aamena']},5:{A:['Shaikh Affan','Sobiya Kazi','Mohammad Ammar Khan','Mohammad Anas Khan','Aarohi','Ghori Muhammad Danish Khan','Mohmmad Hasnain Khan','Syeda Alyna','Mohammed Arqam Khan','Abdullah Khan','Krishna','Shaikh Ammara','Shaikh Sajed','Rishva','Ranjeetsinh','Mohammad Owais Khan','Aarush','Aansh','Mohammed Hazeem','Mithiliesh','Umar Farooque','Abhirup','Shaikh Saad','Rajveer','Muzammil','Khan Saad Ullah','Syed Bilal','Ayeza Fatema','Syed Hassan','Ibad-Ur-Raheman','Devendra','Abdul Mujib','Shaikh Abdullah Shaikh Ahemed','Abdul Rahman'],B:['Shrisha','Sheza Khanam','Areena Khan','Viraj','Dhanshree','Tanushri','Prachi','Anvi','Mohammed Maaz Ansari','Daksh','Mahira Khan','Prem','Swara','Mirza Arhaan Baig','Mohammad Aakif','Harsh','Sairaj','Shrinithi','Kamraan Mohsin Ansari','Manan','Syed Ayan Ahmed','Mohammad Noor Farooqui','Inaaya Adin','Ahad Husain Hashmi','Priyanshu','Ayesha','Aarohi','Sidratul Muntaha','Amina Khan','Divija','Syed Maaz']},6:{A:['Rehan','Shaikh Ziyan','Shaikh Saud','Deepsha','Abdul Salam Hashmi','Vansh','Aaditya','Sk. Affan','Shubhangi','Mohammad Faraz','Mahera Mariyam Shaikh','Hingora Faiza','Shaikh Abdul Rahman','Abdullah Ansari','Minsa Khan','Sai','Abdul Rafe Khan','Haasini','Mohammad Rayyan Shaikh','Mohd. Anas','Zoha','Vedant','Amima Tanya','Syed Hasan','Umar Bilal','Soha Fatima','Zobiya Fatema','Shaikh Zaid','Mohammad Aman','Gayatri','Manaswi','Maryam Khan','Sayyada Zunaira','Mohammad Ali','Shaikh Abdul Rafe'],B:['Shaikh Abdul Muhit','Yasir','Ira','Aliza Taherim','Zafeer Hussain Khatib','Alishba Khan','Saarish','Kanishk','Prabhasnarsimha','Agastya','Samarth','Anabiya Sayed','Isra Jabeen','Syeda Noorul Ahwar','Shaikh Wasi','Syed Ibrahim Ali','Aditya','Dhruv','Pari','Saud','Adnan Rameez Ansari','Syed Zuhaib','Ashmira Razin','Ayeman Fatima','Abdullah','Zikra','Mohammed Abdul Aziz','Rajveersingh','Mohammad Moiduddin Siddiqui','Ayanullah Khan','Samarth','Aashna','Alina Sadaf','Shaikh Umaima','Zoya Fatima','Mohammad Arsalan','Aliya Fatema','Usaid','Shivraj','Zuha','Sayyed Mohammed Aadil']},7:{A:['Kushal','Syed Azaan','Umar','Sulaiman Khan','Sobiya Khan','Rayyan','Riva','Syed Muhaddas Arham Ali','Ayesha Fatema','Shaikh Izhar','Syed Muhammad Ali','Sekh Ziyad','Tanishq','Anush','Assjad Ali Khan','Aditya','Khushi','Md Sulaim','Shaikh Mohammad Ayefaz','Tanush','Abdur Rahman','Kavya','Syed Omar','Sainath'],B:['Rushda Fatema','Rayyan Khan','Charvi','Harshita','Muhammad Talha','Adina Fatema','Shraddha','Alisha','Pari','Afeera','Viren','Abdul Rafe','Sanyukta','Radhika','Saeed Ahamed Barmem','Yasin Khan','Shashwat','Qanita Maryam','Saurav','Arish Ur Raheman','Aditya']},8:{A:['Iram Fatema','Saimegha','Abdul Hasib','Uzair Khan','Brijesh','Surbhi','Ansh','Mohammad Faraz','Mayuresh','Syeda Safiya Sahrish','Kiran','Shaikh Arman','Kazi Alina Fatema','Khan Huzaif Ullah','Sana Kauser Boghani','Abdul Raheman','Mohammad Aaban','Mohammad Zaid','Mohammad Ariyan','Affan','Ishaan','Mirza Adeeba Baig','Reyanshi','Ajit','Mohammed Tameem','Satvik','Abdul Rafe','Rumisa Fatema','Syed Maaz Hussain','Rizeen Fatema','Maithili','Syed Mohammed Farjad'],B:['Bhumesh','Kritika','Narayani','Raksha','Renu','Arfa Fatima','Rajveer','Adhiraj','Syed Alzara','Anagh','Ishan','Muhammad Furqan Siddiqui','Mishti','Suzain','Swara','Swaroop','Syed Yusuf Ahmed','Tahura Fatima','Zaid Ahmed Khan','Zikra Fatema','Zoya Fatema','Manasvi','Swara','Arham Moin Syed','Mohammad Hamzah','Siddharth','Arin','Apsara Ansari','Rayyan','Yash']},9:{A:['Shaikh Unais','Atharva','Shreya','Hana Fatima','Maryam','Mohammad Zayan Ghanchi','Mohammed Zaid','Shaikh Huzaif','Syed Abdul Raheem','Yaser Ahemd Qureshi','Zainab','Zeeshan','Abdul Adeeb','Shayan Khan','Arya','Imrah Adeen','Mohammad Ali Shaikh','Musab Khan','Mohammed Umair Ahmed','Smita','Kazi Mohammad Ziyanutdin','Mutahar Ahmed Siddiqui','Affan','Sanyam','Shaikh Mohammed Zaid','Adiba Khanam','Somya','Vaishnavi','Syed Uzair','Shaikh Uzair','Adnan','Mutallib Muntajeeb Khan','Mohammed Aadil','Syed Abdur Rahman','Samarth','Mikhayal','Shourya','Sarvesh'],B:['Heetal','Rashi','Amogh','Aishwarya','Anubhav Tiwari','Harshita','Shaikh Laiba Mehrin','Mohammad Altamash Ansari','Mohammad Ashmaan','Mohammad Aneeqe Siddiqui','Mohammad Anas','Sachi','Poorva','Raghuveer','Kartik','Parth','Adhiraj','Anokhi','Aurva','Nuturaj','Shaikh Mohammad Azhan Ahmad','Kashif','Vishwaja','Ayan','Ammarulllah Khan','Syed Mohammed','Salahdin Ahmed','Viraj','Tuba Mahreen','Shaikh Umar','Swaraj','Bhumika Rajpurohit','Shreesha','Atharv','Ayush','Arush','Virat']},10:{A:['Mohammad Ahbar Ghanchi','Daniya Mahreen','Vaishnavi','Syed Bhakhtiyar','Aasha Khan','Syed Khalid','Avneesh','Ayesha Khan','Pranesh','V Purohit Arvind','Aayush','Piyush','Sanchay','Sonakshi','Mohammed Mohseen','Fateema Banu','Arisha Fatema Ansari','Shaikh Shirin Kauser','Shaikh Saqlain Malik','Kanak','Aryan','Pratham','Rajveer','Chamele Arthika','Boghani Mohammed Rayyan','Mahemudul Hasan','Absar Ansari','Md. Abdul Nafey','Pathan Aleezra Khan','Pathviraj','Adiba Taskin','Ayra Qudsiya','Laxman','Shaikh Ehtesham Ahmed','Mitali','Akshara'],B:['Mohammad Ahbar Ghanchi','Daniya Mahreen','Vaishnavi','Syed Bhakhtiyar','Aasha Khan','Syed Khalid','Avneesh','Ayesha Khan','Pranesh','V Purohit Arvind','Aayush','Piyush','Sanchay','Sonakshi','Mohammed Mohseen','Fateema Banu','Arisha Fatema Ansari','Shaikh Shirin Kauser','Shaikh Saqlain Malik','Kanak','Aryan','Pratham','Rajveer','Chamele Arthika','Boghani Mohammed Rayyan','Mahemudul Hasan','Absar Ansari','Md. Abdul Nafey','Pathan Aleezra Khan','Pathviraj','Adiba Taskin','Ayra Qudsiya','Laxman','Shaikh Ehtesham Ahmed','Mitali','Akshara']}};
+
+        // --- MASTER DATA: Detailed Student Profiles ---
+        // This is the dedicated section to add or edit detailed student information.
+        // The structure is studentsProfileData[classNumber][sectionLetter]
+        const studentsProfileData = {
+    1: {
+        A: [
+            { studentId: '1A01', name: "Aarav Sharma", fatherName: "Manish Sharma", motherName: "Priya Sharma", dob: "2019-03-15", phone: "9876543210", address: "123 MG Road, Pune", transport: "Bus", photo: "https://placehold.co/120x120/65dfc9/FFFFFF?text=A" },
+            { studentId: '1A02', name: "Saanvi Patel", fatherName: "Rohan Patel", motherName: "Neha Patel", dob: "2019-05-20", phone: "9876543211", address: "456 FC Road, Pune", transport: "Car", photo: "https://placehold.co/120x120/8e44ad/FFFFFF?text=S" },
+            // ... 38 more students for 1A
+            { studentId: '1A03', name: "Vihaan Gupta", fatherName: "Alok Gupta", motherName: "Rina Gupta", dob: "2019-01-12", phone: "9123456703", address: "101 Aundh, Pune", transport: "Bus", photo: "https://placehold.co/120x120/3498db/FFFFFF?text=V" },
+            { studentId: '1A04', name: "Anika Reddy", fatherName: "Suresh Reddy", motherName: "Latha Reddy", dob: "2019-02-22", phone: "9123456704", address: "102 Baner, Pune", transport: "Van", photo: "https://placehold.co/120x120/e74c3c/FFFFFF?text=A" },
+            { studentId: '1A05', name: "Reyansh Singh", fatherName: "Brijesh Singh", motherName: "Pooja Singh", dob: "2019-03-30", phone: "9123456705", address: "103 Kothrud, Pune", transport: "Car", photo: "https://placehold.co/120x120/f1c40f/FFFFFF?text=R" },
+            { studentId: '1A06', name: "Myra Joshi", fatherName: "Nikhil Joshi", motherName: "Deepa Joshi", dob: "2019-04-18", phone: "9123456706", address: "104 Hadapsar, Pune", transport: "Bus", photo: "https://placehold.co/120x120/2ecc71/FFFFFF?text=M" },
+            { studentId: '1A07', name: "Advik Kumar", fatherName: "Pankaj Kumar", motherName: "Sarita Kumar", dob: "2019-05-25", phone: "9123456707", address: "105 Viman Nagar, Pune", transport: "Walk", photo: "https://placehold.co/120x120/9b59b6/FFFFFF?text=A" },
+            { studentId: '1A08', name: "Kiara Verma", fatherName: "Vikram Verma", motherName: "Anjali Verma", dob: "2019-06-11", phone: "9123456708", address: "106 Koregaon Park, Pune", transport: "Car", photo: "https://placehold.co/120x120/1abc9c/FFFFFF?text=K" },
+            { studentId: '1A09', name: "Sai Chavan", fatherName: "Ramesh Chavan", motherName: "Sita Chavan", dob: "2019-07-07", phone: "9123456709", address: "107 Kalyani Nagar, Pune", transport: "Bus", photo: "https://placehold.co/120x120/e67e22/FFFFFF?text=S" },
+            { studentId: '1A10', name: "Ishani Shah", fatherName: "Jignesh Shah", motherName: "Falguni Shah", dob: "2019-08-01", phone: "9123456710", address: "108 Deccan Gymkhana, Pune", transport: "Van", photo: "https://placehold.co/120x120/d35400/FFFFFF?text=I" },
+            { studentId: '1A11', name: "Arjun Nair", fatherName: "Murali Nair", motherName: "Geetha Nair", dob: "2019-09-14", phone: "9123456711", address: "109 Model Colony, Pune", transport: "Bus", photo: "https://placehold.co/120x120/c0392b/FFFFFF?text=A" },
+            { studentId: '1A12', name: "Zoya Khan", fatherName: "Salim Khan", motherName: "Ayesha Khan", dob: "2019-10-02", phone: "9123456712", address: "110 Camp, Pune", transport: "Car", photo: "https://placehold.co/120x120/2c3e50/FFFFFF?text=Z" },
+            { studentId: '1A13', name: "Kabir Mehta", fatherName: "Rajesh Mehta", motherName: "Tina Mehta", dob: "2019-11-23", phone: "9123456713", address: "111 Swargate, Pune", transport: "Bus", photo: "https://placehold.co/120x120/7f8c8d/FFFFFF?text=K" },
+            { studentId: '1A14', name: "Diya Iyer", fatherName: "Shankar Iyer", motherName: "Parvathy Iyer", dob: "2019-12-19", phone: "9123456714", address: "112 Shivaji Nagar, Pune", transport: "Walk", photo: "https://placehold.co/120x120/16a085/FFFFFF?text=D" },
+            { studentId: '1A15', name: "Rudra Patil", fatherName: "Sandeep Patil", motherName: "Vaishali Patil", dob: "2019-01-28", phone: "9123456715", address: "113 Pimpri, Pune", transport: "Van", photo: "https://placehold.co/120x120/27ae60/FFFFFF?text=R" },
+            { studentId: '1A16', name: "Pari Deshmukh", fatherName: "Vilas Deshmukh", motherName: "Smita Deshmukh", dob: "2019-02-14", phone: "9123456716", address: "114 Chinchwad, Pune", transport: "Bus", photo: "https://placehold.co/120x120/2980b9/FFFFFF?text=P" },
+            { studentId: '1A17', name: "Ayaan Sheikh", fatherName: "Farooq Sheikh", motherName: "Yasmin Sheikh", dob: "2019-03-09", phone: "9123456717", address: "115 Akurdi, Pune", transport: "Car", photo: "https://placehold.co/120x120/8e44ad/FFFFFF?text=A" },
+            { studentId: '1A18', name: "Navya Rao", fatherName: "Krishna Rao", motherName: "Radha Rao", dob: "2019-04-05", phone: "9123456718", address: "116 Nigdi, Pune", transport: "Bus", photo: "https://placehold.co/120x120/65dfc9/FFFFFF?text=N" },
+            { studentId: '1A19', name: "Vivaan Malhotra", fatherName: "Deepak Malhotra", motherName: "Anu Malhotra", dob: "2019-05-01", phone: "9123456719", address: "117 Bhosari, Pune", transport: "Van", photo: "https://placehold.co/120x120/3498db/FFFFFF?text=V" },
+            { studentId: '1A20', name: "Siya Kulkarni", fatherName: "Prashant Kulkarni", motherName: "Medha Kulkarni", dob: "2019-06-28", phone: "9123456720", address: "118 Moshi, Pune", transport: "Car", photo: "https://placehold.co/120x120/e74c3c/FFFFFF?text=S" },
+            { studentId: '1A21', name: "Arnav Mishra", fatherName: "Rakesh Mishra", motherName: "Swati Mishra", dob: "2019-07-21", phone: "9123456721", address: "119 Charholi, Pune", transport: "Bus", photo: "https://placehold.co/120x120/f1c40f/FFFFFF?text=A" },
+            { studentId: '1A22', name: "Riya Pillai", fatherName: "Suresh Pillai", motherName: "Jaya Pillai", dob: "2019-08-15", phone: "9123456722", address: "120 Dighi, Pune", transport: "Walk", photo: "https://placehold.co/120x120/2ecc71/FFFFFF?text=R" },
+            { studentId: '1A23', name: "Krishna Yadav", fatherName: "Ram Yadav", motherName: "Savitri Yadav", dob: "2019-09-09", phone: "9123456723", address: "121 Alandi, Pune", transport: "Car", photo: "https://placehold.co/120x120/9b59b6/FFFFFF?text=K" },
+            { studentId: '1A24', name: "Anvi Agarwal", fatherName: "Anil Agarwal", motherName: "Sunita Agarwal", dob: "2019-10-16", phone: "9123456724", address: "122 Lohegaon, Pune", transport: "Bus", photo: "https://placehold.co/120x120/1abc9c/FFFFFF?text=A" },
+            { studentId: '1A25', name: "Laksh Jain", fatherName: "Praveen Jain", motherName: "Kavita Jain", dob: "2019-11-11", phone: "9123456725", address: "123 Wagholi, Pune", transport: "Van", photo: "https://placehold.co/120x120/e67e22/FFFFFF?text=L" },
+            { studentId: '1A26', name: "Sia Bose", fatherName: "Subhash Bose", motherName: "Mita Bose", dob: "2019-12-08", phone: "9123456726", address: "124 Mundhwa, Pune", transport: "Bus", photo: "https://placehold.co/120x120/d35400/FFFFFF?text=S" },
+            { studentId: '1A27', name: "Ryan Dsouza", fatherName: "Peter Dsouza", motherName: "Mary Dsouza", dob: "2019-01-04", phone: "9123456727", address: "125 Ghorpadi, Pune", transport: "Car", photo: "https://placehold.co/120x120/c0392b/FFFFFF?text=R" },
+            { studentId: '1A28', name: "Shanaya Sharma", fatherName: "Vivek Sharma", motherName: "Poonam Sharma", dob: "2019-02-01", phone: "9123456728", address: "126 Wanowrie, Pune", transport: "Walk", photo: "https://placehold.co/120x120/2c3e50/FFFFFF?text=S" },
+            { studentId: '1A29', name: "Aarush Menon", fatherName: "Anand Menon", motherName: "Vidya Menon", dob: "2019-03-25", phone: "9123456729", address: "127 Kondhwa, Pune", transport: "Bus", photo: "https://placehold.co/120x120/7f8c8d/FFFFFF?text=A" },
+            { studentId: '1A30', name: "Amaira Das", fatherName: "Amit Das", motherName: "Soma Das", dob: "2019-04-29", phone: "9123456730", address: "128 Katraj, Pune", transport: "Van", photo: "https://placehold.co/120x120/16a085/FFFFFF?text=A" },
+            { studentId: '1A31', name: "Dhruv Saxena", fatherName: "Alok Saxena", motherName: "Nisha Saxena", dob: "2019-05-19", phone: "9123456731", address: "129 Bibwewadi, Pune", transport: "Car", photo: "https://placehold.co/120x120/27ae60/FFFFFF?text=D" },
+            { studentId: '1A32', name: "Anika Singh", fatherName: "Rajveer Singh", motherName: "Kiran Singh", dob: "2019-06-13", phone: "9123456732", address: "130 Parvati, Pune", transport: "Bus", photo: "https://placehold.co/120x120/2980b9/FFFFFF?text=A" },
+            { studentId: '1A33', name: "Abeer Kapoor", fatherName: "Rohan Kapoor", motherName: "Sonia Kapoor", dob: "2019-07-17", phone: "9123456733", address: "131 Sahakar Nagar, Pune", transport: "Walk", photo: "https://placehold.co/120x120/8e44ad/FFFFFF?text=A" },
+            { studentId: '1A34', name: "Yashvi Tiwari", fatherName: "Manoj Tiwari", motherName: "Rekha Tiwari", dob: "2019-08-27", phone: "9123456734", address: "132 Dhankawadi, Pune", transport: "Van", photo: "https://placehold.co/120x120/65dfc9/FFFFFF?text=Y" },
+            { studentId: '1A35', name: "Ishan Pandey", fatherName: "Dinesh Pandey", motherName: "Usha Pandey", dob: "2019-09-22", phone: "9123456735", address: "133 Ambegaon, Pune", transport: "Bus", photo: "https://placehold.co/120x120/3498db/FFFFFF?text=I" },
+            { studentId: '1A36', name: "Avni Dubey", fatherName: "Ravi Dubey", motherName: "Shilpa Dubey", dob: "2019-10-26", phone: "9123456736", address: "134 Warje, Pune", transport: "Car", photo: "https://placehold.co/120x120/e74c3c/FFFFFF?text=A" },
+            { studentId: '1A37', name: "Rehan Chaudhary", fatherName: "Sanjay Chaudhary", motherName: "Mamta Chaudhary", dob: "2019-11-18", phone: "9123456737", address: "135 Bavdhan, Pune", transport: "Bus", photo: "https://placehold.co/120x120/f1c40f/FFFFFF?text=R" },
+            { studentId: '1A38', name: "Samaira Rathore", fatherName: "Vikram Rathore", motherName: "Divya Rathore", dob: "2019-12-12", phone: "9123456738", address: "136 Pashan, Pune", transport: "Van", photo: "https://placehold.co/120x120/2ecc71/FFFFFF?text=S" },
+            { studentId: '1A39', name: "Aarohi Gaikwad", fatherName: "Suresh Gaikwad", motherName: "Lalita Gaikwad", dob: "2019-01-08", phone: "9123456739", address: "137 Sus, Pune", transport: "Walk", photo: "https://placehold.co/120x120/9b59b6/FFFFFF?text=A" },
+            { studentId: '1A40', name: "Yuvan Jadhav", fatherName: "Kishor Jadhav", motherName: "Manisha Jadhav", dob: "2019-02-05", phone: "9123456740", address: "138 Hinjewadi, Pune", transport: "Car", photo: "https://placehold.co/120x120/1abc9c/FFFFFF?text=Y" }
+        ],
+        B: [
+            { studentId: '1B01', name: "Vivaan Singh", fatherName: "Amit Singh", motherName: "Sunita Singh", dob: "2019-04-10", phone: "9876543212", address: "789 JM Road, Pune", transport: "Van", photo: "https://placehold.co/120x120/3498db/FFFFFF?text=V" },
+            // ... 39 more students for 1B
+            { studentId: '1B02', name: "Zara Ali", fatherName: "Imtiaz Ali", motherName: "Shabana Ali", dob: "2019-03-11", phone: "9223456702", address: "201 Aundh, Pune", transport: "Bus", photo: "https://placehold.co/120x120/e67e22/FFFFFF?text=Z" },
+            { studentId: '1B03', name: "Aryan Sharma", fatherName: "Rajesh Sharma", motherName: "Poonam Sharma", dob: "2019-04-12", phone: "9223456703", address: "202 Baner, Pune", transport: "Car", photo: "https://placehold.co/120x120/d35400/FFFFFF?text=A" },
+            { studentId: '1B04', name: "Eva Fernandes", fatherName: "John Fernandes", motherName: "Maria Fernandes", dob: "2019-05-13", phone: "9223456704", address: "203 Kothrud, Pune", transport: "Van", photo: "https://placehold.co/120x120/c0392b/FFFFFF?text=E" },
+            { studentId: '1B05', name: "Leo Thomas", fatherName: "George Thomas", motherName: "Ann Thomas", dob: "2019-06-14", phone: "9223456705", address: "204 Hadapsar, Pune", transport: "Bus", photo: "https://placehold.co/120x120/2c3e50/FFFFFF?text=L" },
+            { studentId: '1B06', name: "Nora Jain", fatherName: "Sanjay Jain", motherName: "Ritu Jain", dob: "2019-07-15", phone: "9223456706", address: "205 Viman Nagar, Pune", transport: "Walk", photo: "https://placehold.co/120x120/7f8c8d/FFFFFF?text=N" },
+            { studentId: '1B07', name: "Omar Qureshi", fatherName: "Aslam Qureshi", motherName: "Zarina Qureshi", dob: "2019-08-16", phone: "9223456707", address: "206 Koregaon Park, Pune", transport: "Car", photo: "https://placehold.co/120x120/16a085/FFFFFF?text=O" },
+            { studentId: '1B08', name: "Tara Menon", fatherName: "Vijay Menon", motherName: "Shobha Menon", dob: "2019-09-17", phone: "9223456708", address: "207 Kalyani Nagar, Pune", transport: "Bus", photo: "https://placehold.co/120x120/27ae60/FFFFFF?text=T" },
+            { studentId: '1B09', name: "Neil Pandey", fatherName: "Ashok Pandey", motherName: "Meena Pandey", dob: "2019-10-18", phone: "9223456709", address: "208 Deccan Gymkhana, Pune", transport: "Van", photo: "https://placehold.co/120x120/2980b9/FFFFFF?text=N" },
+            { studentId: '1B10', name: "Rhea Iyer", fatherName: "Ganesh Iyer", motherName: "Lalitha Iyer", dob: "2019-11-19", phone: "9223456710", address: "209 Model Colony, Pune", transport: "Bus", photo: "https://placehold.co/120x120/8e44ad/FFFFFF?text=R" },
+            { studentId: '1B11', name: "Sam Singh", fatherName: "Harpreet Singh", motherName: "Jaspreet Singh", dob: "2019-12-20", phone: "9223456711", address: "210 Camp, Pune", transport: "Car", photo: "https://placehold.co/120x120/65dfc9/FFFFFF?text=S" },
+            { studentId: '1B12', name: "Ira Dave", fatherName: "Mahesh Dave", motherName: "Bhavna Dave", dob: "2019-01-21", phone: "9223456712", address: "211 Swargate, Pune", transport: "Walk", photo: "https://placehold.co/120x120/3498db/FFFFFF?text=I" },
+            { studentId: '1B13', name: "Dev Saxena", fatherName: "Rahul Saxena", motherName: "Priya Saxena", dob: "2019-02-22", phone: "9223456713", address: "212 Shivaji Nagar, Pune", transport: "Bus", photo: "https://placehold.co/120x120/e74c3c/FFFFFF?text=D" },
+            { studentId: '1B14', name: "Mila Bose", fatherName: "Ajoy Bose", motherName: "Rani Bose", dob: "2019-03-23", phone: "9223456714", address: "213 Pimpri, Pune", transport: "Van", photo: "https://placehold.co/120x120/f1c40f/FFFFFF?text=M" },
+            { studentId: '1B15', name: "Kian Reddy", fatherName: "Arun Reddy", motherName: "Meena Reddy", dob: "2019-04-24", phone: "9223456715", address: "214 Chinchwad, Pune", transport: "Car", photo: "https://placehold.co/120x120/2ecc71/FFFFFF?text=K" },
+            { studentId: '1B16', name: "Sara Kumar", fatherName: "Anil Kumar", motherName: "Sunita Kumar", dob: "2019-05-25", phone: "9223456716", address: "215 Akurdi, Pune", transport: "Bus", photo: "https://placehold.co/120x120/9b59b6/FFFFFF?text=S" },
+            { studentId: '1B17', name: "Veer Chopra", fatherName: "Ravi Chopra", motherName: "Kiran Chopra", dob: "2019-06-26", phone: "9223456717", address: "216 Nigdi, Pune", transport: "Walk", photo: "https://placehold.co/120x120/1abc9c/FFFFFF?text=V" },
+            { studentId: '1B18', name: "Jiya Patel", fatherName: "Hitesh Patel", motherName: "Ami Patel", dob: "2019-07-27", phone: "9223456718", address: "217 Bhosari, Pune", transport: "Car", photo: "https://placehold.co/120x120/e67e22/FFFFFF?text=J" },
+            { studentId: '1B19', name: "Agastya Joshi", fatherName: "Sameer Joshi", motherName: "Arti Joshi", dob: "2019-08-28", phone: "9223456719", address: "218 Moshi, Pune", transport: "Bus", photo: "https://placehold.co/120x120/d35400/FFFFFF?text=A" },
+            { studentId: '1B20', name: "Parth Shah", fatherName: "Chirag Shah", motherName: "Heena Shah", dob: "2019-09-29", phone: "9223456720", address: "219 Charholi, Pune", transport: "Van", photo: "https://placehold.co/120x120/c0392b/FFFFFF?text=P" },
+            { studentId: '1B21', name: "Rohan Das", fatherName: "Bikash Das", motherName: "Priyanka Das", dob: "2019-10-30", phone: "9223456721", address: "220 Dighi, Pune", transport: "Bus", photo: "https://placehold.co/120x120/2c3e50/FFFFFF?text=R" },
+            { studentId: '1B22', name: "Sana Sheikh", fatherName: "Rashid Sheikh", motherName: "Nadia Sheikh", dob: "2019-11-01", phone: "9223456722", address: "221 Alandi, Pune", transport: "Car", photo: "https://placehold.co/120x120/7f8c8d/FFFFFF?text=S" },
+            { studentId: '1B23', name: "Arin Gupta", fatherName: "Sumit Gupta", motherName: "Shweta Gupta", dob: "2019-12-02", phone: "9223456723", address: "222 Lohegaon, Pune", transport: "Walk", photo: "https://placehold.co/120x120/16a085/FFFFFF?text=A" },
+            { studentId: '1B24', name: "Tanya Mishra", fatherName: "Girish Mishra", motherName: "Anupama Mishra", dob: "2019-01-03", phone: "9223456724", address: "223 Wagholi, Pune", transport: "Bus", photo: "https://placehold.co/120x120/27ae60/FFFFFF?text=T" },
+            { studentId: '1B25', name: "Ishank Sharma", fatherName: "Neeraj Sharma", motherName: "Megha Sharma", dob: "2019-02-04", phone: "9223456725", address: "224 Mundhwa, Pune", transport: "Van", photo: "https://placehold.co/120x120/2980b9/FFFFFF?text=I" },
+            { studentId: '1B26', name: "Vanya Singh", fatherName: "Karan Singh", motherName: "Shilpa Singh", dob: "2019-03-05", phone: "9223456726", address: "225 Ghorpadi, Pune", transport: "Car", photo: "https://placehold.co/120x120/8e44ad/FFFFFF?text=V" },
+            { studentId: '1B27', name: "Yash Chavan", fatherName: "Dilip Chavan", motherName: "Urmila Chavan", dob: "2019-04-06", phone: "9223456727", address: "226 Wanowrie, Pune", transport: "Bus", photo: "https://placehold.co/120x120/65dfc9/FFFFFF?text=Y" },
+            { studentId: '1B28', name: "Anaya Patil", fatherName: "Ashok Patil", motherName: "Surekha Patil", dob: "2019-05-07", phone: "9223456728", address: "227 Kondhwa, Pune", transport: "Walk", photo: "https://placehold.co/120x120/3498db/FFFFFF?text=A" },
+            { studentId: '1B29', name: "Ayaan Ali", fatherName: "Zakir Ali", motherName: "Rizwana Ali", dob: "2019-06-08", phone: "9223456729", address: "228 Katraj, Pune", transport: "Car", photo: "https://placehold.co/120x120/e74c3c/FFFFFF?text=A" },
+            { studentId: '1B30', name: "Fatima Khan", fatherName: "Irfan Khan", motherName: "Saima Khan", dob: "2019-07-09", phone: "9223456730", address: "229 Bibwewadi, Pune", transport: "Bus", photo: "https://placehold.co/120x120/f1c40f/FFFFFF?text=F" },
+            { studentId: '1B31', name: "Harsh Kumar", fatherName: "Vinod Kumar", motherName: "Seema Kumar", dob: "2019-08-10", phone: "9223456731", address: "230 Parvati, Pune", transport: "Van", photo: "https://placehold.co/120x120/2ecc71/FFFFFF?text=H" },
+            { studentId: '1B32', name: "Jasmine Kaur", fatherName: "Manjeet Kaur", motherName: "Balwinder Kaur", dob: "2019-09-11", phone: "9223456732", address: "231 Sahakar Nagar, Pune", transport: "Car", photo: "https://placehold.co/120x120/9b59b6/FFFFFF?text=J" },
+            { studentId: '1B33', name: "Kunal Mehta", fatherName: "Paresh Mehta", motherName: "Jayshree Mehta", dob: "2019-10-12", phone: "9223456733", address: "232 Dhankawadi, Pune", transport: "Bus", photo: "https://placehold.co/120x120/1abc9c/FFFFFF?text=K" },
+            { studentId: '1B34', name: "Lavanya Reddy", fatherName: "Mohan Reddy", motherName: "Shanti Reddy", dob: "2019-11-13", phone: "9223456734", address: "233 Ambegaon, Pune", transport: "Walk", photo: "https://placehold.co/120x120/e67e22/FFFFFF?text=L" },
+            { studentId: '1B35', name: "Manan Gupta", fatherName: "Gaurav Gupta", motherName: "Ekta Gupta", dob: "2019-12-14", phone: "9223456735", address: "234 Warje, Pune", transport: "Van", photo: "https://placehold.co/120x120/d35400/FFFFFF?text=M" },
+            { studentId: '1B36', name: "Navya Nair", fatherName: "Santosh Nair", motherName: "Bindu Nair", dob: "2019-01-15", phone: "9223456736", address: "235 Bavdhan, Pune", transport: "Bus", photo: "https://placehold.co/120x120/c0392b/FFFFFF?text=N" },
+            { studentId: '1B37', name: "Prisha Rao", fatherName: "Sudhir Rao", motherName: "Anitha Rao", dob: "2019-02-16", phone: "9223456737", address: "236 Pashan, Pune", transport: "Car", photo: "https://placehold.co/120x120/2c3e50/FFFFFF?text=P" },
+            { studentId: '1B38', name: "Rishaan Shah", fatherName: "Mitesh Shah", motherName: "Priti Shah", dob: "2019-03-17", phone: "9223456738", address: "237 Sus, Pune", transport: "Bus", photo: "https://placehold.co/120x120/7f8c8d/FFFFFF?text=R" },
+            { studentId: '1B39', name: "Suhana Deshmukh", fatherName: "Rajendra Deshmukh", motherName: "Varsha Deshmukh", dob: "2019-04-18", phone: "9223456739", address: "238 Hinjewadi, Pune", transport: "Van", photo: "https://placehold.co/120x120/16a085/FFFFFF?text=S" },
+            { studentId: '1B40', name: "Veerendra Verma", fatherName: "Dharmendra Verma", motherName: "Hema Verma", dob: "2019-05-19", phone: "9223456740", address: "239 Wakad, Pune", transport: "Walk", photo: "https://placehold.co/120x120/27ae60/FFFFFF?text=V" }
+        ]
+    },
+    // ... Data for classes 2 to 10 with 40 students in each A and B section
+    // This is a representative sample. A full list would be too long.
+    // The structure for other classes would follow the same pattern.
+    2: {
+        A: [
+            { studentId: '2A01', name: "Diya Gupta", fatherName: "Sanjay Gupta", motherName: "Pooja Gupta", dob: "2018-02-25", phone: "9876543213", address: "101 Koregaon Park, Pune", transport: "Bus", photo: "https://placehold.co/120x120/f1c40f/FFFFFF?text=D" },
+            // ... 39 more students for 2A
+        ],
+        B: [
+            { studentId: '2B01', name: "Ayaan Khan", fatherName: "Imran Khan", motherName: "Fatima Khan", dob: "2018-06-30", phone: "9876543214", address: "212 Kalyani Nagar, Pune", transport: "Car", photo: "https://placehold.co/120x120/e67e22/FFFFFF?text=A" },
+            // ... 39 more students for 2B
+        ]
+    },
+    3: {
+        A: [
+            { studentId: '3A01', name: "Ananya Joshi", fatherName: "Nitin Joshi", motherName: "Meena Joshi", dob: "2017-09-12", phone: "9876543215", address: "333 Viman Nagar, Pune", transport: "Bus", photo: "https://placehold.co/120x120/e74c3c/FFFFFF?text=A" },
+            // ... 39 more students for 3A
+        ],
+        B: [
+            // ... 40 students for 3B
+        ]
+    },
+    4: {
+        A: [
+            { studentId: '4A01', name: "Arjun Kumar", fatherName: "Sunil Kumar", motherName: "Anita Kumar", dob: "2016-07-18", phone: "9876543216", address: "444 Baner, Pune", transport: "Walk", photo: "https://placehold.co/120x120/1abc9c/FFFFFF?text=A" },
+            // ... 39 more students for 4A
+        ],
+        B: [
+            // ... 40 students for 4B
+        ]
+    },
+    5: {
+        A: [
+            { studentId: '5A01', name: "Ishaan Reddy", fatherName: "Prakash Reddy", motherName: "Lakshmi Reddy", dob: "2015-11-05", phone: "9876543217", address: "555 Aundh, Pune", transport: "Bus", photo: "https://placehold.co/120x120/2ecc71/FFFFFF?text=I" },
+            // ... 39 more students for 5A
+        ],
+        B: [
+            { studentId: '5B01', name: "Myra Deshpande", fatherName: "Rahul Deshpande", motherName: "Sneha Deshpande", dob: "2015-10-01", phone: "9876543218", address: "654 Kothrud, Pune", transport: "Car", photo: "https://placehold.co/120x120/9b59b6/FFFFFF?text=M" },
+            // ... 39 more students for 5B
+        ]
+    },
+    6: {
+        A: [
+            { studentId: '6A01', name: "Advik Nair", fatherName: "Gopal Nair", motherName: "Shanti Nair", dob: "2014-01-20", phone: "9876543219", address: "777 Hadapsar, Pune", transport: "Van", photo: "https://placehold.co/120x120/34495e/FFFFFF?text=A" },
+            // ... 39 more students for 6A
+        ],
+        B: [
+            // ... 40 students for 6B
+        ]
+    },
+    7: {
+        A: [
+            { studentId: '7A01', name: "Kiara Iyer", fatherName: "Ravi Iyer", motherName: "Deepa Iyer", dob: "2013-08-14", phone: "9876543220", address: "888 Hinjewadi, Pune", transport: "Bus", photo: "https://placehold.co/120x120/16a085/FFFFFF?text=K" },
+            // ... 39 more students for 7A
+        ],
+        B: [
+            // ... 40 students for 7B
+        ]
+    },
+    8: {
+        A: [
+            { studentId: '8A01', name: "Shaurya Mehta", fatherName: "Vikas Mehta", motherName: "Kavita Mehta", dob: "2012-04-22", phone: "9876543221", address: "999 Pimpri, Pune", transport: "Car", photo: "https://placehold.co/120x120/27ae60/FFFFFF?text=S" },
+            // ... 39 more students for 8A
+        ],
+        B: [
+            // ... 40 students for 8B
+        ]
+    },
+    9: {
+        A: [
+            { studentId: '9A01', name: "Zara Begum", fatherName: "Yusuf Begum", motherName: "Zainab Begum", dob: "2011-12-03", phone: "9876543222", address: "111 Chinchwad, Pune", transport: "Bus", photo: "https://placehold.co/120x120/2980b9/FFFFFF?text=Z" },
+            // ... 39 more students for 9A
+        ],
+        B: [
+            // ... 40 students for 9B
+        ]
+    },
+    10: {
+        A: [
+            { studentId: '10A01', name: "Kabir Kapoor", fatherName: "Rajesh Kapoor", motherName: "Anjali Kapoor", dob: "2010-10-10", phone: "9876543223", address: "222 Wakad, Pune", transport: "Walk", photo: "https://placehold.co/120x120/8e44ad/FFFFFF?text=K" },
+            // ... 39 more students for 10A
+        ],
+        B: [
+            { studentId: '10B01', name: "Rhea Pillai", fatherName: "Anand Pillai", motherName: "Geeta Pillai", dob: "2010-11-28", phone: "9876543224", address: "321 Deccan Gymkhana, Pune", transport: "Van", photo: "https://placehold.co/120x120/c0392b/FFFFFF?text=R" },
+            // ... 39 more students for 10B
+        ]
+    }
+};
+
+
+        // This function links the names from studentsData to the profiles.
+        // It ensures that every student in the attendance list has a profile.
+        function syncAndGenerateProfiles() {
+            for (const classNum in studentsData) {
+                if (!studentsProfileData[classNum]) studentsProfileData[classNum] = { A: [], B: [] };
+                for (const section in studentsData[classNum]) {
+                    if (!studentsProfileData[classNum][section]) studentsProfileData[classNum][section] = [];
+                    
+                    studentsData[classNum][section].forEach((name, index) => {
+                        const studentId = `${classNum}${section}${String(index + 1).padStart(2, '0')}`;
+                        
+                        // Check if a profile for this student already exists
+                        let profileExists = studentsProfileData[classNum][section].some(p => p.name === name);
+
+                        // If not, create a default profile
+                        if (!profileExists) {
+                            const nameParts = name.split(' ');
+                            const firstName = nameParts[0];
+                            const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'Khan';
+                            
+                            studentsProfileData[classNum][section].push({
+                                studentId: studentId,
+                                name: name,
+                                fatherName: `Mr. ${lastName}`,
+                                motherName: `Mrs. ${firstName}`,
+                                dob: `${2018 - parseInt(classNum)}-${String(index % 12 + 1).padStart(2, '0')}-${String(index % 28 + 1).padStart(2, '0')}`,
+                                phone: `98765${String(Math.floor(10000 + Math.random() * 90000))}`,
+                                address: `${100 + index} MG Road, Pune`,
+                                transport: index % 2 === 0 ? "Bus" : "Private",
+                                photo: `https://placehold.co/120x120/65dfc9/FFFFFF?text=${firstName.charAt(0)}${lastName.charAt(0)}`
+                            });
+                        }
+                    });
+                }
+            }
+        }
+        syncAndGenerateProfiles();
+
+        let markAllClickCount = 0;
+
+        function createStudentCard(student, index) {
+            const card = document.createElement('div');
+            card.className = 'student-card';
+            card.dataset.studentId = student.studentId;
+            const header = document.createElement('div'); header.className = 'student-header';
+            const nameGroup = document.createElement('div'); nameGroup.className = 'name-group';
+            const statusIcon = document.createElement('span'); statusIcon.className = 'status-icon'; statusIcon.textContent = '➖';
+            const nameSpan = document.createElement('span'); nameSpan.className = 'name'; nameSpan.textContent = `${index + 1}. ${student.name}`;
+            nameGroup.append(statusIcon, nameSpan);
+            const autoBtn = document.createElement('button'); autoBtn.className = 'auto-btn'; autoBtn.textContent = 'All ✓';
+            header.append(nameGroup, autoBtn);
+            card.appendChild(header);
+            const dropdown = document.createElement('div'); dropdown.className = 'appearance-dropdown';
+            dropdown.innerHTML = `<label>Homework:<select><option>--</option><option>Done</option><option>Not Done</option></select></label><label>Uniform:<select><option>--</option><option>Clean</option><option>Dirty</option></select></label><label>Hairstyle:<select><option>--</option><option>Neat</option><option>Messy</option></select></label><label>Nails:<select><option>--</option><option>Trimmed</option><option>Long</option></select></label><label>Shoes:<select><option>--</option><option>Clean</option><option>Dirty</option></select></label><label>Get-up:<select><option>--</option><option>Appropriate</option><option>Inappropriate</option></select></label>`;
+            card.append(dropdown);
+            
+            let attendanceClickCount = 0;
+            statusIcon.addEventListener('click', () => {
+                attendanceClickCount = (attendanceClickCount + 1) % 3;
+                if (attendanceClickCount === 1) { card.classList.add('present'); card.classList.remove('absent'); statusIcon.textContent = '✓'; } 
+                else if (attendanceClickCount === 2) { card.classList.remove('present'); card.classList.add('absent'); statusIcon.textContent = '✗'; } 
+                else { card.classList.remove('present', 'absent'); statusIcon.textContent = '➖'; }
+            });
+
+            dropdown.querySelectorAll('select').forEach(s => s.addEventListener('click', e => e.stopPropagation()));
+            autoBtn.addEventListener('click', () => {
+                ['Done','Clean','Neat','Trimmed','Clean','Appropriate'].forEach((val, i) => dropdown.querySelectorAll('select')[i].value = val);
+                if (!card.classList.contains('present')) { card.classList.add('present'); card.classList.remove('absent'); statusIcon.textContent = '✓'; attendanceClickCount = 1; }
+            });
+            return card;
+        }
+
+        function getAllRecords() {
+            const dateVal = dateInput.value || new Date().toISOString().split('T')[0];
+            const cls = classSelect.value, sec = sectionSelect.value;
+            const allRecords = [];
+            document.querySelectorAll('.student-card').forEach(card => {
+                const name = card.querySelector('.name').textContent.replace(/^\d+\.\s/, '');
+                let st = 'No Mark';
+                if (card.classList.contains('present')) st = 'Present';
+                else if (card.classList.contains('absent')) st = 'Absent';
+                const vals = [...card.querySelectorAll('.appearance-dropdown select')].map(s => st === 'Absent' ? '--' : s.value || '--');
+                allRecords.push({ Date: dateVal, Class: cls, Section: sec, Name: name, Status: st, Homework: vals[0], Uniform: vals[1], Hairstyle: vals[2], Nails: vals[3], Shoes: vals[4], GetUp: vals[5] });
+            });
+            return allRecords;
+        }
+
+        function loadStudents() {
+            studentListDiv.innerHTML = '';
+            const cls = classSelect.value, sec = sectionSelect.value;
+            if (studentsProfileData[cls] && studentsProfileData[cls][sec]) {
+                studentsProfileData[cls][sec].forEach((student, i) => {
+                    studentListDiv.append(createStudentCard(student, i));
+                });
+            }
+        }
+        classSelect.addEventListener('change', loadStudents);
+        sectionSelect.addEventListener('change', loadStudents);
+
+        markAllBtn.addEventListener('click', () => {
+            markAllClickCount++;
+            const allCards = document.querySelectorAll('.student-card');
+            if (markAllClickCount % 3 === 1) {
+                allCards.forEach(card => {
+                    card.classList.add('present'); card.classList.remove('absent'); card.querySelector('.status-icon').textContent = '✓';
+                    const dropdowns = card.querySelectorAll('.appearance-dropdown select');
+                    ['Done','Clean','Neat','Trimmed','Clean','Appropriate'].forEach((val, i) => dropdowns[i].value = val);
+                });
+                markStatusLabel.textContent = 'All students marked Present with Appearance ✓';
+            } else if (markAllClickCount % 3 === 2) {
+                allCards.forEach(card => {
+                    card.classList.remove('present'); card.classList.add('absent'); card.querySelector('.status-icon').textContent = '✗';
+                    card.querySelectorAll('select').forEach(select => select.value = '');
+                });
+                markStatusLabel.textContent = 'All students marked Absent ✗';
+            } else {
+                allCards.forEach(card => {
+                    card.classList.remove('present', 'absent'); card.querySelector('.status-icon').textContent = '➖';
+                    card.querySelectorAll('select').forEach(select => select.value = '');
+                });
+                markStatusLabel.textContent = 'All marks cleared ➖';
+            }
+        });
+        
+        function fitToColumn(jsonData) {
+            if (!jsonData || jsonData.length === 0) return [];
+            const headers = Object.keys(jsonData[0]);
+            const colWidths = headers.map(header => ({ wch: header.length }));
+            jsonData.forEach(row => {
+                headers.forEach((header, i) => {
+                    const valueLength = row[header] ? String(row[header]).length : 0;
+                    if (valueLength > colWidths[i].wch) { colWidths[i].wch = valueLength; }
+                });
+            });
+            colWidths.forEach(col => { col.wch += 2; });
+            return colWidths;
+        }
+
+        generateBtn.addEventListener('click', () => {
+            const allRecords = getAllRecords();
+            if(allRecords.length === 0) { alert("No students loaded to generate a report."); return; }
+            const wb = XLSX.utils.book_new();
+            const ws1 = XLSX.utils.json_to_sheet(allRecords);
+            ws1['!cols'] = fitToColumn(allRecords);
+            XLSX.utils.book_append_sheet(wb, ws1, 'All Students');
+            const absentRecords = allRecords.filter(r => r.Status === 'Absent');
+            if (absentRecords.length > 0) {
+                const ws2 = XLSX.utils.json_to_sheet(absentRecords);
+                ws2['!cols'] = fitToColumn(absentRecords);
+                XLSX.utils.book_append_sheet(wb, ws2, 'Absent Students');
+            }
+            XLSX.writeFile(wb, `Attendance_${allRecords[0].Date}_C${allRecords[0].Class}_S${allRecords[0].Section}.xlsx`);
+        });
+
+        saveBtn.addEventListener('click', () => {
+            const allRecords = getAllRecords();
+            if(allRecords.length === 0) { alert("No attendance data to save."); return; }
+            fetch(WEB_APP_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(allRecords) })
+            .then(res => res.text())
+            .then(txt => {
+                try {
+                    const result = JSON.parse(txt);
+                    if (result.status === "success") { alert("Attendance saved to Google Sheet!"); } 
+                    else { alert("Error saving attendance."); }
+                } catch(e) { console.error("Error parsing response:", txt); alert("Invalid response from server."); }
+            })
+            .catch(err => { alert("Network error: " + err.message); });
+        });
+
+        // --- Profile Tab & Modal Logic ---
+        function populateProfileStudentList() {
+            const cls = profileClassSelect.value;
+            const sec = profileSectionSelect.value;
+            profileStudentList.innerHTML = '';
+            
+            if (studentsProfileData[cls] && studentsProfileData[cls][sec]) {
+                studentsProfileData[cls][sec].forEach(student => {
+                    const li = document.createElement('li');
+                    li.textContent = student.name;
+                    li.dataset.studentId = student.studentId;
+                    li.addEventListener('click', () => openProfileModal(student.studentId));
+                    profileStudentList.appendChild(li);
+                });
+            }
+        }
+
+        function openProfileModal(studentId) {
+            const cls = profileClassSelect.value;
+            const sec = profileSectionSelect.value;
+            if (!cls || !sec) return;
+
+            const student = studentsProfileData[cls][sec].find(s => s.studentId === studentId);
+            if (!student) return;
+
+            document.getElementById('modal-profile-photo').src = student.photo;
+            document.getElementById('modal-profile-photo').onerror = function() { this.src='https://placehold.co/120x120/ff0000/FFFFFF?text=Error'; };
+            document.getElementById('modal-profile-name').textContent = student.name;
+            
+            const detailsList = document.getElementById('modal-profile-details');
+            detailsList.innerHTML = `
+                <li><strong>Student ID:</strong> <span>${student.studentId}</span></li>
+                <li><strong>Father's Name:</strong> <span>${student.fatherName}</span></li>
+                <li><strong>Mother's Name:</strong> <span>${student.motherName}</span></li>
+                <li><strong>Date of Birth:</strong> <span>${student.dob}</span></li>
+                <li><strong>Phone:</strong> <a href="tel:${student.phone}">${student.phone}</a></li>
+                <li><strong>Address:</strong> <span>${student.address}</span></li>
+                <li><strong>Transport:</strong> <span>${student.transport}</span></li>
+            `;
+            
+            profileModal.style.display = 'flex';
+        }
+
+        function closeProfileModal() {
+            profileModal.style.display = 'none';
+        }
+
+        profileModalClose.addEventListener('click', closeProfileModal);
+        profileModal.addEventListener('click', function(event) {
+            if (event.target === profileModal) {
+                closeProfileModal();
+            }
+        });
+
+        profileClassSelect.addEventListener('change', populateProfileStudentList);
+        profileSectionSelect.addEventListener('change', populateProfileStudentList);
+
+    </script>
+
+</body>
+</html>
